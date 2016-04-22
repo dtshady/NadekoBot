@@ -67,10 +67,11 @@ namespace NadekoBot.Modules.NSFW
                 cgb.CreateCommand(Prefix + "e621")
                     .Description("Shows a random hentai image from e621.net with a given tag. Tag is optional but preffered. Use spaces for multiple tags.\n**Usage**: ~e621 yuri+kissing")
                     .Parameter("tag", ParameterType.Unparsed)
+					.Alias("!e621")
                     .Do(async e =>
                     {
                         var tag = e.GetArg("tag")?.Trim() ?? "";
-                        await e.Channel.SendMessage(await SearchHelper.GetE621ImageLink(tag).ConfigureAwait(false)).ConfigureAwait(false);
+                        await e.Channel.SendMessage(e.User.Mention + " " + await SearchHelper.GetE621ImageLink(tag).ConfigureAwait(false)).ConfigureAwait(false);
                     });
                 cgb.CreateCommand(Prefix + "cp")
                     .Description("We all know where this will lead you to.")

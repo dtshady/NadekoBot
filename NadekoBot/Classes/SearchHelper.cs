@@ -267,7 +267,7 @@ namespace NadekoBot.Classes
                 ServicePointManager.SecurityProtocol = SecurityProtocolType.Ssl3 | SecurityProtocolType.Tls | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12;
                 XDocument doc = XDocument.Load(" https://e621.net/post/index.xml?tags="+Uri.EscapeUriString(tags)+"%20order:random&limit=1");
                 int id = Convert.ToInt32(doc.Root.Element("post").Element("id").Value);
-                return (doc.Root.Element("post").Element("file_url").Value);
+                return ("I found a match for the tags **" + tags + "**\nPermalink: https://e621.net/post/show/"+id+" \n\n"+doc.Root.Element("post").Element("file_url").Value);
             }
             catch (Exception)
             {
