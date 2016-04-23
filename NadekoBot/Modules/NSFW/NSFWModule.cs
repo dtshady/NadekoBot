@@ -73,6 +73,14 @@ namespace NadekoBot.Modules.NSFW
                         var tag = e.GetArg("tag")?.Trim() ?? "";
                         await e.Channel.SendMessage(e.User.Mention + " " + await SearchHelper.GetE621ImageLink(tag).ConfigureAwait(false)).ConfigureAwait(false);
                     });
+                cgb.CreateCommand(Prefix + "cowzone")
+                    .Description("Shows a random hentai image from cow.zone.\n**Usage**: ~cowzone")
+                    .Parameter("tag", ParameterType.Unparsed)
+                    .Do(async e =>
+                    {
+                        var tag = e.GetArg("tag")?.Trim() ?? "";
+                        await e.Channel.SendMessage(e.User.Mention + " " + await SearchHelper.GetCowZoneImageLink(tag).ConfigureAwait(false)).ConfigureAwait(false);
+                    });
                 cgb.CreateCommand(Prefix + "cp")
                     .Description("We all know where this will lead you to.")
                     .Parameter("anything", ParameterType.Unparsed)

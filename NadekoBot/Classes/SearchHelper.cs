@@ -274,6 +274,33 @@ namespace NadekoBot.Classes
                 return "Error, do you have too many tags?";
             }
         }
+		
+		internal static async Task<string> GetCowZoneImageLink(string tags)
+        {
+            try
+            {
+                Random rId = new Random();
+                ServicePointManager.Expect100Continue = true;
+                ServicePointManager.SecurityProtocol = SecurityProtocolType.Ssl3 | SecurityProtocolType.Tls | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12;
+                WebClient xmlclient = new WebClient();
+                
+                string xmlstring = xmlclient.DownloadString(" https://cow.zone/shimmie2/post/index.xml?tags=order=random_" + rId.Next(1, 9999).ToString() + "&limit=1");
+                
+                XmlReader reader = XmlReader.Create(new StringReader(xmlstring));
+                reader.ReadToFollowing("post");
+                reader.MoveToAttribute("id");
+                int id = Convert.ToInt32(reader.Value);
+                reader.MoveToAttribute("file_url");
+                string fileurl = reader.Value;
+
+                
+                return ("Here is a random image from Dante's Archive \nPermalink: https://cow.zone/shimmie2/post/show/" + id + " \n\n" + fileurl);
+            }
+            catch (Exception exc)
+            {
+                return exc.GetBaseException().ToString();
+            }
+        }
 
         public static async Task<string> ShortenUrl(string url)
         {
