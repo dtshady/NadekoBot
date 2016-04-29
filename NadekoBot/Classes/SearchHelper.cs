@@ -180,7 +180,7 @@ namespace NadekoBot.Classes
             return obj.items[0].id.playlistId.ToString();
         }
 
-        public static async Task<IEnumerable<string>> GetVideoIDs(string playlist, int number = 30)
+        public static async Task<IEnumerable<string>> GetVideoIDs(string playlist, int number = 50)
         {
             if (string.IsNullOrWhiteSpace(NadekoBot.Creds.GoogleAPIKey))
             {
@@ -190,7 +190,7 @@ namespace NadekoBot.Classes
                 throw new ArgumentOutOfRangeException();
             var link =
                 $"https://www.googleapis.com/youtube/v3/playlistItems?part=contentDetails" +
-                $"&maxResults={30}" +
+                $"&maxResults={number}" +
                 $"&playlistId={playlist}" +
                 $"&key={NadekoBot.Creds.GoogleAPIKey}";
 
@@ -264,9 +264,7 @@ namespace NadekoBot.Classes
         {
             try
             {
-                ServicePointManager.Expect100Continue = true;
-                ServicePointManager.SecurityProtocol = SecurityProtocolType.Ssl3 | SecurityProtocolType.Tls | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12;
-                XDocument doc = XDocument.Load(" https://e621.net/post/index.xml?tags="+Uri.EscapeUriString(tags)+"%20order:random&limit=1");
+                XDocument doc = await Task.Run(() => XDocument.Load(" http://e621.net/post/index.xml?tags=" + Uri.EscapeUriString(tags) + "%20order:random&limit=1"));
                 int id = Convert.ToInt32(doc.Root.Element("post").Element("id").Value);
                 return ("I found a match for the tags **" + tags + "**\nPermalink: https://e621.net/post/show/"+id+" \n\n"+doc.Root.Element("post").Element("file_url").Value);
             }
