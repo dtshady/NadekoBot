@@ -4,6 +4,7 @@ using NadekoBot.Classes;
 using NadekoBot.Modules.Permissions.Classes;
 using System;
 using System.Collections.Concurrent;
+using System.Threading.Tasks;
 using System.Timers;
 
 namespace NadekoBot.Modules.Administration.Commands
@@ -27,34 +28,52 @@ namespace NadekoBot.Modules.Administration.Commands
             public Repeater Start()
             {
                 MessageTimer = new Timer { Interval = Interval };
-                MessageTimer.Elapsed += async (s, e) =>
-                {
-                    var ch = RepeatingChannel;
-                    var msg = RepeatingMessage;
-                    if (ch != null && !string.IsNullOrWhiteSpace(msg))
-                    {
-                        try
-                        {
-                            if (lastMessage != null)
-                                await lastMessage.Delete().ConfigureAwait(false);
-                        }
-                        catch { }
-                        try
-                        {
-                            lastMessage = await ch.SendMessage(msg).ConfigureAwait(false);
-                        }
-                        catch { }
-                    }
-                };
+                MessageTimer.Elapsed += async (s, e) => await Invoke();
                 return this;
+            }
+
+            public async Task Invoke()
+            {
+                var ch = RepeatingChannel;
+                var msg = RepeatingMessage;
+                if (ch != null && !string.IsNullOrWhiteSpace(msg))
+                {
+                    try
+                    {
+                        if (lastMessage != null)
+                            await lastMessage.Delete().ConfigureAwait(false);
+                    }
+                    catch { }
+                    try
+                    {
+                        lastMessage = await ch.SendMessage(msg).ConfigureAwait(false);
+                    }
+                    catch { }
+                }
             }
         }
         internal override void Init(CommandGroupBuilder cgb)
         {
 
+            cgb.CreateCommand(Module.Prefix + "repeatinvoke")
+                .Alias(Module.Prefix + "repinv")
+                .Description("Immediately shows the repeat message and restarts the timer.")
+                .AddCheck(SimpleCheckers.ManageMessages())
+                .Do(async e =>
+                {
+                    Repeater rep;
+                    if (!repeaters.TryGetValue(e.Server, out rep))
+                    {
+                        await e.Channel.SendMessage("`No repeating message found on this server.`");
+                        return;
+                    }
+
+                    await rep.Invoke();
+                });
+
             cgb.CreateCommand(Module.Prefix + "repeat")
                 .Description("Repeat a message every X minutes. If no parameters are specified, " +
-                             "repeat is disabled. Requires manage messages.")
+                             "repeat is disabled. Requires manage messages.\n**Usage**:`.repeat 5 Hello there`")
                 .Parameter("minutes", ParameterType.Optional)
                 .Parameter("msg", ParameterType.Unparsed)
                 .AddCheck(SimpleCheckers.ManageMessages())
@@ -73,7 +92,7 @@ namespace NadekoBot.Modules.Administration.Commands
                         return;
                     }
                     int minutes;
-                    if (!int.TryParse(minutesStr, out minutes) || minutes < 1 || minutes > 720)
+                    if (!int.TryParse(minutesStr, out minutes) || minutes < 1 || minutes > 1440)
                     {
                         await e.Channel.SendMessage("Invalid value").ConfigureAwait(false);
                         return;

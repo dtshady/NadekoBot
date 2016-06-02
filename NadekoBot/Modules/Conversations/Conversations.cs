@@ -2,6 +2,7 @@ using Discord;
 using Discord.Commands;
 using Discord.Modules;
 using NadekoBot.Classes.Conversations.Commands;
+using NadekoBot.DataModels;
 using NadekoBot.Extensions;
 using NadekoBot.Modules.Permissions.Classes;
 using NadekoBot.Properties;
@@ -33,47 +34,6 @@ namespace NadekoBot.Modules.Conversations
             manager.CreateCommands("", cgb =>
             {
                 cgb.AddCheck(PermissionChecker.Instance);
-
-                cgb.CreateCommand("e")
-                    .Description("You did it. Or someone else!")
-                    .Parameter("other", ParameterType.Unparsed)
-                    .Do(async e =>
-                    {
-                        var other = e.GetArg("other");
-                        if (string.IsNullOrWhiteSpace(other))
-                            await e.Channel.SendMessage($"{e.User.Name} did it. 😒 🔫").ConfigureAwait(false);
-                        else
-                            await e.Channel.SendMessage($"{other} did it. 😒 🔫").ConfigureAwait(false);
-                    });
-
-                cgb.CreateCommand("comeatmebro")
-                .Description("Come at me bro (ง’̀-‘́)ง \n**Usage**: comeatmebro {target}")
-                .Parameter("target", ParameterType.Optional)
-                .Do(async e =>
-                {
-                    var usr = e.Server.FindUsers(e.GetArg("target")).FirstOrDefault();
-                    if (usr == null)
-                    {
-                        await e.Channel.SendMessage("(ง’̀-‘́)ง").ConfigureAwait(false);
-                        return;
-                    }
-                    await e.Channel.SendMessage($"{usr.Mention} (ง’̀-‘́)ง").ConfigureAwait(false);
-                });
-
-
-                cgb.CreateCommand("\\o\\")
-                    .Description("Nadeko replies with /o/")
-                    .Do(async e => await e.Channel.SendMessage(e.User.Mention + "/o/").ConfigureAwait(false));
-
-                cgb.CreateCommand("/o/")
-                    .Description("Nadeko replies with \\o\\")
-                    .Do(async e => await e.Channel.SendMessage(e.User.Mention + "\\o\\").ConfigureAwait(false));
-
-                cgb.CreateCommand("moveto")
-                .Description("Suggests moving the conversation.\n**Usage**: moveto #spam")
-                .Parameter("target", ParameterType.Unparsed)
-                .Do(async e => await e.Channel.SendMessage($"(👉 ͡° ͜ʖ ͡°)👉 {e.GetArg("target")}"));
-
 
                 cgb.CreateCommand("..")
                     .Description("Adds a new quote with the specified name (single word) and message (no limit).\n**Usage**: .. abc My message")
@@ -113,6 +73,26 @@ namespace NadekoBot.Modules.Conversations
                             await e.Channel.SendMessage($"📣 {quote.Text}").ConfigureAwait(false);
                         else
                             await e.Channel.SendMessage("💢`No quote found.`").ConfigureAwait(false);
+                    });
+
+                cgb.CreateCommand("..qdel")
+                    .Alias("..quotedelete")
+                    .Description("Deletes all quotes with the specified keyword. You have to either be bot owner or the creator of the quote to delete it.\n**Usage**: `..qdel abc`")
+                    .Parameter("quote", ParameterType.Required)
+                    .Do(async e =>
+                    {
+                        var text = e.GetArg("quote")?.Trim();
+                        if (string.IsNullOrWhiteSpace(text))
+                            return;
+                        await Task.Run(() =>
+                        {
+                            if (NadekoBot.IsOwner(e.User.Id))
+                                Classes.DbHandler.Instance.DeleteWhere<UserQuote>(uq => uq.Keyword == text);
+                            else
+                                Classes.DbHandler.Instance.DeleteWhere<UserQuote>(uq => uq.Keyword == text && uq.UserName == e.User.Name);
+                        }).ConfigureAwait(false);
+
+                        await e.Channel.SendMessage("`Done.`").ConfigureAwait(false);
                     });
             });
 
@@ -181,123 +161,6 @@ namespace NadekoBot.Modules.Conversations
                         }
                     });
 
-                cgb.CreateCommand("insult")
-                    .Parameter("mention", ParameterType.Required)
-                    .Description("Insults @X person.\n**Usage**: @NadekoBot insult @X.")
-                    .Do(async e =>
-                    {
-                        var u = e.Channel.FindUsers(e.GetArg("mention")).FirstOrDefault();
-                        if (u == null)
-                        {
-                            await e.Channel.SendMessage("Invalid user specified.").ConfigureAwait(false);
-                            return;
-                        }
-
-                        if (NadekoBot.IsOwner(u.Id))
-                        {
-                            await e.Channel.SendMessage("I would never insult my master <3").ConfigureAwait(false);
-                            return;
-                        }
-                        await e.Channel.SendMessage(u.Mention + NadekoBot.Locale.Insults[rng.Next(0, NadekoBot.Locale.Insults.Length)]).ConfigureAwait(false);
-                    });
-
-                cgb.CreateCommand("praise")
-                    .Description("Praises @X person.\n**Usage**: @NadekoBot praise @X.")
-                    .Parameter("mention", ParameterType.Required)
-                    .Do(async e =>
-                    {
-                        var u = e.Channel.FindUsers(e.GetArg("mention")).FirstOrDefault();
-
-                        if (u == null)
-                        {
-                            await e.Channel.SendMessage("Invalid user specified.").ConfigureAwait(false);
-                            return;
-                        }
-
-                        if (NadekoBot.IsOwner(u.Id))
-                        {
-                            await e.Channel.SendMessage(e.User.Mention + " I don't need your permission to praise my beloved Master <3").ConfigureAwait(false);
-                            return;
-                        }
-                        await e.Channel.SendMessage(u.Mention + NadekoBot.Locale.Praises[rng.Next(0, NadekoBot.Locale.Praises.Length)]).ConfigureAwait(false);
-                    });
-
-                cgb.CreateCommand("pat")
-                  .Description("Pat someone ^_^")
-                  .Parameter("user", ParameterType.Unparsed)
-                  .Do(async e =>
-                  {
-                      var userStr = e.GetArg("user");
-                      if (string.IsNullOrWhiteSpace(userStr) || !e.Message.MentionedUsers.Any()) return;
-                      var user = e.Server.FindUsers(userStr).FirstOrDefault();
-                      if (user == null)
-                          return;
-                      try
-                      {
-                          await e.Channel.SendMessage(
-                                    $"{user.Mention} " +
-                                    $"{NadekoBot.Config.PatResponses[rng.Next(0, NadekoBot.Config.PatResponses.Length)]}")
-                                        .ConfigureAwait(false);
-                      }
-                      catch
-                      {
-                          await e.Channel.SendMessage("Error while handling PatResponses check your data/config.json").ConfigureAwait(false);
-                      }
-                  });
-
-                cgb.CreateCommand("cry")
-                  .Description("Tell Nadeko to cry. You are a heartless monster if you use this command.")
-                  .Do(async e =>
-                  {
-                      try
-                      {
-                          await
-                              e.Channel.SendMessage(
-                                  $"(•̥́ _•ૅ｡)\n{NadekoBot.Config.CryResponses[rng.Next(0, NadekoBot.Config.CryResponses.Length)]}")
-                                    .ConfigureAwait(false);
-                      }
-                      catch
-                      {
-                          await e.Channel.SendMessage("Error while handling CryResponses check your data/config.json").ConfigureAwait(false);
-                      }
-                  });
-
-                cgb.CreateCommand("disguise")
-                  .Description("Tell Nadeko to disguise herself.")
-                  .Do(async e =>
-                  {
-                      try
-                      {
-                          await
-                              e.Channel.SendMessage(
-                                  $"{NadekoBot.Config.DisguiseResponses[rng.Next(0, NadekoBot.Config.DisguiseResponses.Length)]}")
-                                    .ConfigureAwait(false);
-                      }
-                      catch
-                      {
-                          await e.Channel.SendMessage("Error while handling DisguiseResponses check your data/config.json")
-                                         .ConfigureAwait(false);
-                      }
-                  });
-
-                cgb.CreateCommand("are you real")
-                    .Description("Useless.")
-                    .Do(async e =>
-                    {
-                        await e.Channel.SendMessage(e.User.Mention + " I will be soon.").ConfigureAwait(false);
-                    });
-
-                cgb.CreateCommand("are you there")
-                    .Description("Checks if Nadeko is operational.")
-                    .Alias("!", "?")
-                    .Do(SayYes());
-
-                cgb.CreateCommand("draw")
-                    .Description("Nadeko instructs you to type $draw. Gambling functions start with $")
-                    .Do(async e =>
-                    {
-                        await e.Channel.SendMessage("Sorry, I don't gamble, type $draw for that function.").ConfigureAwait(false);
-                    });
                 cgb.CreateCommand("fire")
                     .Description("Shows a unicode fire message. Optional parameter [x] tells her how many times to repeat the fire.\n**Usage**: @NadekoBot fire [x]")
                     .Parameter("times", ParameterType.Optional)
@@ -370,8 +233,8 @@ namespace NadekoBot.Modules.Conversations
 
                         Message msg = null;
                         var msgs = (await e.Channel.DownloadMessages(100).ConfigureAwait(false))
-                                    .Where(m => m.MentionedUsers.Contains(e.User))
-                                    .OrderByDescending(m => m.Timestamp);
+                        .Where(m => m.MentionedUsers.Contains(e.User))
+                        .OrderByDescending(m => m.Timestamp);
                         if (msgs.Any())
                             msg = msgs.First();
                         else
@@ -382,40 +245,19 @@ namespace NadekoBot.Modules.Conversations
                             {
                                 var msgsarr = await e.Channel.DownloadMessages(100, lastMessage?.Id).ConfigureAwait(false);
                                 msg = msgsarr
-                                        .Where(m => m.MentionedUsers.Contains(e.User))
-                                        .OrderByDescending(m => m.Timestamp)
-                                        .FirstOrDefault();
+                            .Where(m => m.MentionedUsers.Contains(e.User))
+                            .OrderByDescending(m => m.Timestamp)
+                            .FirstOrDefault();
                                 lastMessage = msgsarr.OrderBy(m => m.Timestamp).First();
                             }
                         }
                         if (msg != null)
                             await e.Channel.SendMessage($"Last message mentioning you was at {msg.Timestamp}\n**Message from {msg.User.Name}:** {msg.RawText}")
-                                           .ConfigureAwait(false);
+                                .ConfigureAwait(false);
                         else
                             await e.Channel.SendMessage("I can't find a message mentioning you.").ConfigureAwait(false);
                     });
 
-                cgb.CreateCommand("bb")
-                    .Description("Says bye to someone.\n**Usage**: @NadekoBot bb @X")
-                    .Parameter("ppl", ParameterType.Unparsed)
-                    .Do(async e =>
-                    {
-                        var str = "Bye";
-                        foreach (var u in e.Message.MentionedUsers)
-                        {
-                            if (u.Id != NadekoBot.Client.CurrentUser.Id)
-                                str += " " + u.Mention;
-                        }
-                        await e.Channel.SendMessage(str).ConfigureAwait(false);
-                    });
-
-                cgb.CreateCommand("call")
-                    .Description("Useless. Writes calling @X to chat.\n**Usage**: @NadekoBot call @X ")
-                    .Parameter("who", ParameterType.Required)
-                    .Do(async e =>
-                    {
-                        await e.Channel.SendMessage("Calling " + e.Args[0] + "...").ConfigureAwait(false);
-                    });
                 cgb.CreateCommand("hide")
                     .Description("Hides Nadeko in plain sight!11!!")
                     .Do(async e =>
@@ -479,7 +321,8 @@ namespace NadekoBot.Modules.Conversations
                         await e.Channel.SendMessage(construct).ConfigureAwait(false);
                     });
 
-                cgb.CreateCommand("av").Alias("avatar")
+                cgb.CreateCommand("av")
+                    .Alias("avatar")
                     .Parameter("mention", ParameterType.Required)
                     .Description("Shows a mentioned person's avatar.\n**Usage**: ~av @X")
                     .Do(async e =>

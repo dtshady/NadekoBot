@@ -27,6 +27,9 @@ namespace NadekoBot.Modules.Searches
             commands.Add(new StreamNotifications(this));
             commands.Add(new ConverterCommand(this));
             commands.Add(new RedditCommand(this));
+			commands.Add(new WowJokeCommand(this));
+            commands.Add(new CalcCommand(this));
+            commands.Add(new WowJokeCommand(this));
             rng = new Random();
         }
 
@@ -67,8 +70,13 @@ $@"🌍 **Weather for** 【{obj["target"]}】
                     .Do(async e =>
                     {
                         if (!(await SearchHelper.ValidateQuery(e.Channel, e.GetArg("query")).ConfigureAwait(false))) return;
-
-                        var shortUrl = await SearchHelper.ShortenUrl(await SearchHelper.FindYoutubeUrlByKeywords(e.GetArg("query")).ConfigureAwait(false)).ConfigureAwait(false);
+                        var link = await SearchHelper.FindYoutubeUrlByKeywords(e.GetArg("query")).ConfigureAwait(false);
+                        if (string.IsNullOrWhiteSpace(link))
+                        {
+                            await e.Channel.SendMessage("No results found for that query.");
+                            return;
+                        }
+                        var shortUrl = await SearchHelper.ShortenUrl(link).ConfigureAwait(false);
                         await e.Channel.SendMessage(shortUrl).ConfigureAwait(false);
                     });
 
@@ -137,6 +145,7 @@ $@"🌍 **Weather for** 【{obj["target"]}】
                     });
 
                 cgb.CreateCommand(Prefix + "randomcat")
+                    .Alias(Prefix + "meow")
                     .Description("Shows a random cat image.")
                     .Do(async e =>
                     {
@@ -180,9 +189,10 @@ $@"🌍 **Weather for** 【{obj["target"]}】
                                return;
                            try
                            {
-                               var reqString = $"https://www.googleapis.com/customsearch/v1?q={Uri.EscapeDataString(e.GetArg("query"))}&cx=018084019232060951019%3Ahs5piey28-e&num=1&searchType=image&start={ rng.Next(1, 150) }&fields=items%2Flink&key={NadekoBot.Creds.GoogleAPIKey}";
+                               var reqString = $"https://www.googleapis.com/customsearch/v1?q={Uri.EscapeDataString(e.GetArg("query"))}&cx=018084019232060951019%3Ahs5piey28-e&num=50&searchType=image&start={ rng.Next(1, 50) }&fields=items%2Flink&key={NadekoBot.Creds.GoogleAPIKey}";
                                var obj = JObject.Parse(await SearchHelper.GetResponseStringAsync(reqString).ConfigureAwait(false));
-                               await e.Channel.SendMessage(obj["items"][0]["link"].ToString()).ConfigureAwait(false);
+                               var items = obj["items"] as JArray;
+                               await e.Channel.SendMessage(items[rng.Next(0, items.Count)]["link"].ToString()).ConfigureAwait(false);
                            }
                            catch (HttpRequestException exception)
                            {
@@ -428,7 +438,49 @@ $@"🌍 **Weather for** 【{obj["target"]}】
                     .Do(async e =>
                     {
                         var tag = e.GetArg("tag")?.Trim() ?? "";
-                        await e.Channel.SendMessage(await SearchHelper.GetSafebooruImageLink(tag).ConfigureAwait(false)).ConfigureAwait(false);
+                        var link = await SearchHelper.GetSafebooruImageLink(tag).ConfigureAwait(false);
+                        if (link == null)
+                            await e.Channel.SendMessage("`No results.`");
+                        else
+                            await e.Channel.SendMessage(link).ConfigureAwait(false);
+                    });
+
+                cgb.CreateCommand(Prefix + "wiki")
+                    .Description("Gives you back a wikipedia link")
+                    .Parameter("query", ParameterType.Unparsed)
+                    .Do(async e =>
+                    {
+                        var query = e.GetArg("query");
+                        var result = await SearchHelper.GetResponseStringAsync("https://en.wikipedia.org//w/api.php?action=query&format=json&prop=info&redirects=1&formatversion=2&inprop=url&titles=" + Uri.EscapeDataString(query));
+                        var data = JsonConvert.DeserializeObject<WikipediaApiModel>(result);
+                        if (data.Query.Pages[0].Missing)
+                            await e.Channel.SendMessage("`That page could not be found.`");
+                        else
+                            await e.Channel.SendMessage(data.Query.Pages[0].FullUrl);
+                    });
+
+                cgb.CreateCommand(Prefix + "clr")
+                    .Description("Shows you what color corresponds to that hex.\n**Usage**: `~clr 00ff00`")
+                    .Parameter("color", ParameterType.Unparsed)
+                    .Do(async e =>
+                    {
+                        var arg1 = e.GetArg("color")?.Trim()?.Replace("#", "");
+                        if (string.IsNullOrWhiteSpace(arg1))
+                            return;
+                        var img = new Bitmap(50, 50);
+
+                        var red = Convert.ToInt32(arg1.Substring(0, 2), 16);
+                        var green = Convert.ToInt32(arg1.Substring(2, 2), 16);
+                        var blue = Convert.ToInt32(arg1.Substring(4, 2), 16);
+                        var brush = new SolidBrush(Color.FromArgb(red, green, blue));
+
+                        using (Graphics g = Graphics.FromImage(img))
+                        {
+                            g.FillRectangle(brush, 0, 0, 50, 50);
+                            g.Flush();
+                        }
+
+                        await e.Channel.SendFile("arg1.png", img.ToStream());
                     });
             });
         }

@@ -1,16 +1,19 @@
 ﻿using Discord;
 using Discord.Commands;
 using NadekoBot.Classes;
+using NadekoBot.Extensions;
 using NadekoBot.Modules.Permissions.Classes;
 using System;
 using System.Linq;
+using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using ChPermOverride = Discord.ChannelPermissionOverrides;
 
 namespace NadekoBot.Modules.Administration.Commands
 {
     internal class VoicePlusTextCommand : DiscordCommand
     {
-
+        Regex channelNameRegex = new Regex(@"[^a-zA-Z0-9 -]", RegexOptions.Compiled);
         public VoicePlusTextCommand(DiscordModule module) : base(module)
         {
             // changing servers may cause bugs
@@ -79,10 +82,40 @@ namespace NadekoBot.Modules.Administration.Commands
         }
 
         private string GetChannelName(string voiceName) =>
-            voiceName.Replace(" ", "-").Trim() + "-voice";
+            channelNameRegex.Replace(voiceName, "").Trim().Replace(" ", "-").TrimTo(90, true) + "-voice";
 
         internal override void Init(CommandGroupBuilder cgb)
         {
+            cgb.CreateCommand(Module.Prefix + "cleanv+t")
+                .Description("Deletes all text channels ending in `-voice` for which voicechannels are not found. **Use at your own risk.**")
+                .AddCheck(SimpleCheckers.CanManageRoles)
+                .AddCheck(SimpleCheckers.ManageChannels())
+                .Do(async e =>
+                {
+                    if (!e.Server.CurrentUser.ServerPermissions.ManageChannels)
+                    {
+                        await e.Channel.SendMessage("`I have insufficient permission to do that.`");
+                        return;
+                    }
+
+                    var allTxtChannels = e.Server.TextChannels.Where(c => c.Name.EndsWith("-voice"));
+                    var validTxtChannelNames = e.Server.VoiceChannels.Select(c => GetChannelName(c.Name));
+
+                    var invalidTxtChannels = allTxtChannels.Where(c => !validTxtChannelNames.Contains(c.Name));
+
+                    foreach (var c in invalidTxtChannels)
+                    {
+                        try
+                        {
+                            await c.Delete();
+                        }
+                        catch { }
+                        await Task.Delay(500);
+                    }
+
+                    await e.Channel.SendMessage("`Done.`");
+                });
+
             cgb.CreateCommand(Module.Prefix + "v+t")
                 .Alias(Module.Prefix + "voice+text")
                 .Description("Creates a text channel for each voice channel only users in that voice channel can see." +

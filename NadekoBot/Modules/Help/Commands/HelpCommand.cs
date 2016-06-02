@@ -25,7 +25,7 @@ namespace NadekoBot.Classes.Help.Commands
                     .FirstOrDefault(c => c.Text.ToLowerInvariant().Equals(comToFind) ||
                                         c.Aliases.Select(a => a.ToLowerInvariant()).Contains(comToFind));
                 if (com != null)
-                    await e.Channel.SendMessage($"`Help for '{com.Text}':` **{com.Description}**").ConfigureAwait(false);
+                    await e.Channel.SendMessage($"`Help for '{com.Text}':` {com.Description}").ConfigureAwait(false);
             }).ConfigureAwait(false);
         };
         public static string HelpString => (NadekoBot.IsBot
@@ -88,7 +88,9 @@ Version: `{NadekoStats.Instance.BotVersion}`";
                     await e.Channel.SendMessage(
 @"**FULL README**: <https://github.com/Kwoth/NadekoBot/blob/master/README.md>
 
-**GUIDE ONLY**: <https://github.com/Kwoth/NadekoBot/blob/master/ComprehensiveGuide.md>
+**WINDOWS SETUP GUIDE**: <https://github.com/Kwoth/NadekoBot/blob/master/ComprehensiveGuide.md>
+
+**LINUX SETUP GUIDE**: <https://github.com/Kwoth/NadekoBot/blob/master/LinuxSetup.md>
 
 **LIST OF COMMANDS**: <https://github.com/Kwoth/NadekoBot/blob/master/commandlist.md>").ConfigureAwait(false));
 

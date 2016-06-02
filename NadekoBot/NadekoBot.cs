@@ -7,11 +7,14 @@ using NadekoBot.Classes.JSONModels;
 using NadekoBot.Modules.Administration;
 using NadekoBot.Modules.ClashOfClans;
 using NadekoBot.Modules.Conversations;
+using NadekoBot.Modules.CustomReactions;
 using NadekoBot.Modules.Gambling;
 using NadekoBot.Modules.Games;
 using NadekoBot.Modules.Games.Commands;
 using NadekoBot.Modules.Help;
+#if !NADEKO_RELEASE
 using NadekoBot.Modules.Music;
+#endif
 using NadekoBot.Modules.NSFW;
 using NadekoBot.Modules.Permissions;
 using NadekoBot.Modules.Permissions.Classes;
@@ -177,12 +180,15 @@ namespace NadekoBot
             modules.Add(new Conversations(), "Conversations", ModuleFilter.None);
             modules.Add(new GamblingModule(), "Gambling", ModuleFilter.None);
             modules.Add(new GamesModule(), "Games", ModuleFilter.None);
+#if !NADEKO_RELEASE
             modules.Add(new MusicModule(), "Music", ModuleFilter.None);
+#endif
             modules.Add(new SearchesModule(), "Searches", ModuleFilter.None);
             modules.Add(new NSFWModule(), "NSFW", ModuleFilter.None);
             modules.Add(new ClashOfClansModule(), "ClashOfClans", ModuleFilter.None);
             modules.Add(new PokemonModule(), "Pokegame", ModuleFilter.None);
             modules.Add(new TranslatorModule(), "Translator", ModuleFilter.None);
+            modules.Add(new CustomReactionsModule(), "Customreactions", ModuleFilter.None);
             if (!string.IsNullOrWhiteSpace(Creds.TrelloAppKey))
                 modules.Add(new TrelloModule(), "Trello", ModuleFilter.None);
 
@@ -198,7 +204,6 @@ namespace NadekoBot
                         await Client.Connect(Creds.Token).ConfigureAwait(false);
                         IsBot = true;
                     }
-                    Console.WriteLine(NadekoBot.Client.CurrentUser.Id);
                 }
                 catch (Exception ex)
                 {
@@ -210,8 +215,12 @@ namespace NadekoBot
                     Console.ReadKey();
                     return;
                 }
+#if NADEKO_RELEASE
+                await Task.Delay(100000).ConfigureAwait(false);
+#else
+                await Task.Delay(1000).ConfigureAwait(false);
+#endif
 
-                //await Task.Delay(90000).ConfigureAwait(false);
                 Console.WriteLine("-----------------");
                 Console.WriteLine(await NadekoStats.Instance.GetStats().ConfigureAwait(false));
                 Console.WriteLine("-----------------");

@@ -264,7 +264,7 @@ namespace NadekoBot.Modules.Music
                     });
 
                 cgb.CreateCommand("pl")
-                    .Description("Queues up to 25 songs from a youtube playlist specified by a link, or keywords.\n**Usage**: `!m pl playlist link or name`")
+                    .Description("Queues up to 50 songs from a youtube playlist specified by a link, or keywords.\n**Usage**: `!m pl playlist link or name`")
                     .Parameter("playlist", ParameterType.Unparsed)
                     .Do(async e =>
                     {
@@ -276,10 +276,21 @@ namespace NadekoBot.Modules.Music
                             await e.Channel.SendMessage("💢 You need to be in a voice channel on this server.\n If you are already in a voice channel, try rejoining it.").ConfigureAwait(false);
                             return;
                         }
-                        var ids = await SearchHelper.GetVideoIDs(await SearchHelper.GetPlaylistIdByKeyword(arg).ConfigureAwait(false), 50).ConfigureAwait(false);
+                        var plId = await SearchHelper.GetPlaylistIdByKeyword(arg).ConfigureAwait(false);
+                        if (plId == null)
+                        {
+                            await e.Channel.SendMessage("No search results for that query.");
+                            return;
+                        }
+                        var ids = await SearchHelper.GetVideoIDs(plId, 500).ConfigureAwait(false);
+                        if (ids == null || ids.Count == 0)
+                        {
+                            await e.Channel.SendMessage($"🎵`Failed to find any songs.`");
+                            return;
+                        }
                         //todo TEMPORARY SOLUTION, USE RESOLVE QUEUE IN THE FUTURE
                         var idArray = ids as string[] ?? ids.ToArray();
-                        var count = idArray.Count();
+                        var count = idArray.Length;
                         var msg =
                             await e.Channel.SendMessage($"🎵 `Attempting to queue {count} songs".SnPl(count) + "...`").ConfigureAwait(false);
                         foreach (var id in idArray)
@@ -294,7 +305,7 @@ namespace NadekoBot.Modules.Music
                     });
 
                 cgb.CreateCommand("lopl")
-                    .Description("Queues up to 50 songs from a directory. **Owner Only!**\n**Usage**: `!m lopl C:/music/classical`")
+                    .Description("Queues all songs from a directory. **Owner Only!**\n**Usage**: `!m lopl C:/music/classical`")
                     .Parameter("directory", ParameterType.Unparsed)
                     .AddCheck(SimpleCheckers.OwnerOnly())
                     .Do(async e =>
@@ -334,7 +345,7 @@ namespace NadekoBot.Modules.Music
                     });
 
                 cgb.CreateCommand("lo")
-                    .Description("Queues a local file by specifying a full path. **Owner Only!**\n**Usage**: `!m ra C:/music/mysong.mp3`")
+                    .Description("Queues a local file by specifying a full path. **Owner Only!**\n**Usage**: `!m lo C:/music/mysong.mp3`")
                     .Parameter("path", ParameterType.Unparsed)
                     .AddCheck(SimpleCheckers.OwnerOnly())
                     .Do(async e =>
@@ -488,16 +499,6 @@ namespace NadekoBot.Modules.Music
 
                     });
 
-                //cgb.CreateCommand("info")
-                //    .Description("Prints music info (queued/finished/playing) only to this channel")
-                //    .Do(async e =>
-                //    {
-                //        MusicPlayer musicPlayer;
-                //        if (!MusicPlayers.TryGetValue(e.Server, out musicPlayer))
-                //            return;
-                //        musicPlayer
-                //    });
-
                 cgb.CreateCommand("load")
                     .Description("Loads a playlist under a certain name. \n**Usage**: `!m load classical-1`")
                     .Parameter("name", ParameterType.Unparsed)
@@ -551,6 +552,23 @@ namespace NadekoBot.Modules.Music
                                 Console.WriteLine($"Failed QueueSong in load playlist. {ex}");
                             }
                         }
+                    });
+
+                cgb.CreateCommand("playlists")
+                    .Alias("pls")
+                    .Description("Lists all playlists. Paginated. 20 per page. Default page is 0.\n**Usage**:`!m pls 1`")
+                    .Parameter("num", ParameterType.Optional)
+                    .Do(e =>
+                    {
+                        int num = 0;
+                        int.TryParse(e.GetArg("num"), out num);
+                        if (num < 0)
+                            return;
+                        var result = DbHandler.Instance.GetPlaylistData(num);
+                        if (result.Count == 0)
+                            e.Channel.SendMessage($"`No saved playlists found on page {num}`");
+                        else
+                            e.Channel.SendMessage($"```js\n--- List of saved playlists ---\n\n" + string.Join("\n", result.Select(r => $"'{r.Name}-{r.Id}' by {r.Creator} ({r.SongCnt} songs)")) + $"\n\n        --- Page {num} ---```");
                     });
 
                 cgb.CreateCommand("goto")

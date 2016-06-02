@@ -64,6 +64,16 @@
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
     <Prefer32Bit>true</Prefer32Bit>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'NadekoRelease|AnyCPU'">
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE;NADEKO_RELEASE</DefineConstants>
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+    <Prefer32Bit>true</Prefer32Bit>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="libvideo, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\VideoLibrary.1.3.3\lib\portable-net45+win+wpa81+MonoAndroid10+xamarinios10+MonoTouch10\libvideo.dll</HintPath>
@@ -87,6 +97,10 @@
     </Reference>
     <Reference Include="Manatee.Trello.WebApi, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\Manatee.Trello.WebApi.1.0.1\lib\net45\Manatee.Trello.WebApi.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="MathParser, Version=1.0.10.1, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\MathosParser.1.0.10.1\lib\MathParser.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="Newtonsoft.Json, Version=8.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
@@ -120,14 +134,21 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Modules\Administration\Commands\AutoAssignRole.cs" />
+    <Compile Include="Modules\Administration\Commands\CustomReactionsCommands.cs" />
     <Compile Include="Modules\ClashOfClans\ClashOfClans.cs" />
     <Compile Include="Classes\DBHandler.cs" />
     <Compile Include="Classes\FlowersHandler.cs" />
+    <Compile Include="Modules\CustomReactions\CustomReactions.cs" />
+    <Compile Include="Modules\Programming\Commands\HaskellRepl.cs" />
+    <Compile Include="Modules\Programming\ProgrammingModule.cs" />
+    <Compile Include="Modules\Searches\Commands\EvalCommand.cs" />
     <Compile Include="Modules\Searches\Commands\IMDB\ImdbMovie.cs" />
     <Compile Include="Modules\Searches\Commands\IMDB\ImdbScraper.cs" />
     <Compile Include="Classes\IncidentsHandler.cs" />
     <Compile Include="_Models\JSONModels\AnimeResult.cs" />
     <Compile Include="_Models\JSONModels\Configuration.cs" />
+    <Compile Include="Modules\Searches\Commands\WowJokes.cs" />
     <Compile Include="_Models\JSONModels\LocalizedStrings.cs" />
     <Compile Include="_Models\JSONModels\MagicItem.cs" />
     <Compile Include="_Models\JSONModels\MangaResult.cs" />
