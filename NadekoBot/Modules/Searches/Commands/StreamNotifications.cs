@@ -68,12 +68,12 @@ namespace NadekoBot.Modules.Searches.Commands
                     }
                 }
                 catch { }
-                ConfigHandler.SaveConfig();
+                await ConfigHandler.SaveConfig().ConfigureAwait(false);
             };
             checkTimer.Start();
         }
 
-        private async Task<Tuple<bool, string>> GetStreamStatus(StreamNotificationConfig stream)
+        private async Task<Tuple<bool, string>> GetStreamStatus(StreamNotificationConfig stream, bool checkCache = true)
         {
             bool isLive;
             string response;
@@ -83,7 +83,7 @@ namespace NadekoBot.Modules.Searches.Commands
             {
                 case StreamNotificationConfig.StreamType.Hitbox:
                     var hitboxUrl = $"https://api.hitbox.tv/media/status/{stream.Username}";
-                    if (cachedStatuses.TryGetValue(hitboxUrl, out result))
+                    if (checkCache && cachedStatuses.TryGetValue(hitboxUrl, out result))
                         return result;
                     response = await SearchHelper.GetResponseStringAsync(hitboxUrl).ConfigureAwait(false);
                     data = JObject.Parse(response);
@@ -93,7 +93,7 @@ namespace NadekoBot.Modules.Searches.Commands
                     return result;
                 case StreamNotificationConfig.StreamType.Twitch:
                     var twitchUrl = $"https://api.twitch.tv/kraken/streams/{Uri.EscapeUriString(stream.Username)}";
-                    if (cachedStatuses.TryGetValue(twitchUrl, out result))
+                    if (checkCache && cachedStatuses.TryGetValue(twitchUrl, out result))
                         return result;
                     response = await SearchHelper.GetResponseStringAsync(twitchUrl).ConfigureAwait(false);
                     data = JObject.Parse(response);
@@ -103,7 +103,7 @@ namespace NadekoBot.Modules.Searches.Commands
                     return result;
                 case StreamNotificationConfig.StreamType.Beam:
                     var beamUrl = $"https://beam.pro/api/v1/channels/{stream.Username}";
-                    if (cachedStatuses.TryGetValue(beamUrl, out result))
+                    if (checkCache && cachedStatuses.TryGetValue(beamUrl, out result))
                         return result;
                     response = await SearchHelper.GetResponseStringAsync(beamUrl).ConfigureAwait(false);
                     data = JObject.Parse(response);
@@ -122,7 +122,7 @@ namespace NadekoBot.Modules.Searches.Commands
             cgb.CreateCommand(Module.Prefix + "hitbox")
                 .Alias(Module.Prefix + "hb")
                 .Description("Notifies this channel when a certain user starts streaming." +
-                             "\n**Usage**: ~hitbox SomeStreamer")
+                             $" | `{Prefix}hitbox SomeStreamer`")
                 .Parameter("username", ParameterType.Unparsed)
                 .AddCheck(SimpleCheckers.ManageServer())
                 .Do(TrackStream(StreamNotificationConfig.StreamType.Hitbox));
@@ -130,7 +130,7 @@ namespace NadekoBot.Modules.Searches.Commands
             cgb.CreateCommand(Module.Prefix + "twitch")
                 .Alias(Module.Prefix + "tw")
                 .Description("Notifies this channel when a certain user starts streaming." +
-                             "\n**Usage**: ~twitch SomeStreamer")
+                             $" | `{Prefix}twitch SomeStreamer`")
                 .AddCheck(SimpleCheckers.ManageServer())
                 .Parameter("username", ParameterType.Unparsed)
                 .Do(TrackStream(StreamNotificationConfig.StreamType.Twitch));
@@ -138,15 +138,102 @@ namespace NadekoBot.Modules.Searches.Commands
             cgb.CreateCommand(Module.Prefix + "beam")
                 .Alias(Module.Prefix + "bm")
                 .Description("Notifies this channel when a certain user starts streaming." +
-                             "\n**Usage**: ~beam SomeStreamer")
+                             $" | `{Prefix}beam SomeStreamer`")
                 .AddCheck(SimpleCheckers.ManageServer())
                 .Parameter("username", ParameterType.Unparsed)
                 .Do(TrackStream(StreamNotificationConfig.StreamType.Beam));
 
+            cgb.CreateCommand(Module.Prefix + "checkhitbox")
+                .Alias(Module.Prefix + "chhb")
+                .Description("Checks if a certain user is streaming on the hitbox platform." +
+                             $" | `{Prefix}chhb SomeStreamer`")
+                .Parameter("username", ParameterType.Unparsed)
+                .AddCheck(SimpleCheckers.ManageServer())
+                .Do(async e =>
+                {
+                    var stream = e.GetArg("username")?.Trim();
+                    if (string.IsNullOrWhiteSpace(stream))
+                        return;
+                    try
+                    {
+                        var streamStatus = (await GetStreamStatus(new StreamNotificationConfig
+                        {
+                            Username = stream,
+                            Type = StreamNotificationConfig.StreamType.Hitbox
+                        }));
+                        if (streamStatus.Item1)
+                        {
+                            await e.Channel.SendMessage($"`Streamer {streamStatus.Item2} is online.`");
+                        }
+                    }
+                    catch
+                    {
+                        await e.Channel.SendMessage("No channel found.");
+                    }
+                });
+
+            cgb.CreateCommand(Module.Prefix + "checktwitch")
+                .Alias(Module.Prefix + "chtw")
+                .Description("Checks if a certain user is streaming on the twitch platform." +
+                             $" | `{Prefix}chtw SomeStreamer`")
+                .AddCheck(SimpleCheckers.ManageServer())
+                .Parameter("username", ParameterType.Unparsed)
+                .Do(async e =>
+                {
+                    var stream = e.GetArg("username")?.Trim();
+                    if (string.IsNullOrWhiteSpace(stream))
+                        return;
+                    try
+                    {
+                        var streamStatus = (await GetStreamStatus(new StreamNotificationConfig
+                        {
+                            Username = stream,
+                            Type = StreamNotificationConfig.StreamType.Twitch
+                        }));
+                        if (streamStatus.Item1)
+                        {
+                            await e.Channel.SendMessage($"`Streamer {streamStatus.Item2} is online.`");
+                        }
+                    }
+                    catch
+                    {
+                        await e.Channel.SendMessage("No channel found.");
+                    }
+                });
+
+            cgb.CreateCommand(Module.Prefix + "checkbeam")
+                .Alias(Module.Prefix + "chbm")
+                .Description("Checks if a certain user is streaming on the beam platform." +
+                             $" | `{Prefix}chbm SomeStreamer`")
+                .AddCheck(SimpleCheckers.ManageServer())
+                .Parameter("username", ParameterType.Unparsed)
+                .Do(async e =>
+                {
+                    var stream = e.GetArg("username")?.Trim();
+                    if (string.IsNullOrWhiteSpace(stream))
+                        return;
+                    try
+                    {
+                        var streamStatus = (await GetStreamStatus(new StreamNotificationConfig
+                        {
+                            Username = stream,
+                            Type = StreamNotificationConfig.StreamType.Beam
+                        }));
+                        if (streamStatus.Item1)
+                        {
+                            await e.Channel.SendMessage($"`Streamer {streamStatus.Item2} is online.`");
+                        }
+                    }
+                    catch
+                    {
+                        await e.Channel.SendMessage("No channel found.");
+                    }
+                });
+
             cgb.CreateCommand(Module.Prefix + "removestream")
                 .Alias(Module.Prefix + "rms")
                 .Description("Removes notifications of a certain streamer on this channel." +
-                             "\n**Usage**: ~rms SomeGuy")
+                             $" | `{Prefix}rms SomeGuy`")
                 .AddCheck(SimpleCheckers.ManageServer())
                 .Parameter("username", ParameterType.Unparsed)
                 .Do(async e =>
@@ -167,14 +254,14 @@ namespace NadekoBot.Modules.Searches.Commands
                     }
 
                     config.ObservingStreams.Remove(toRemove);
-                    ConfigHandler.SaveConfig();
+                    await ConfigHandler.SaveConfig().ConfigureAwait(false);
                     await e.Channel.SendMessage($":ok: Removed `{toRemove.Username}`'s stream from notifications.").ConfigureAwait(false);
                 });
 
             cgb.CreateCommand(Module.Prefix + "liststreams")
                 .Alias(Module.Prefix + "ls")
                 .Description("Lists all streams you are following on this server." +
-                             "\n**Usage**: ~ls")
+                             $" | `{Prefix}ls`")
                 .Do(async e =>
                 {
 

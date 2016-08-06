@@ -1,25 +1,18 @@
 ﻿using Discord;
+using NadekoBot.Extensions;
 using Newtonsoft.Json;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.Serialization;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace NadekoBot.Classes.JSONModels
 {
     public class Configuration
     {
-        public bool DontJoinServers { get; set; } = false;
-        public bool ForwardMessages { get; set; } = true;
-        public bool IsRotatingStatus { get; set; } = false;
-
         [JsonIgnore]
-        public List<Quote> Quotes { get; set; } = new List<Quote>();
-
-        [JsonIgnore]
-        public List<PokemonType> PokemonTypes { get; set; } = new List<PokemonType>();
-
-        public string RemindMessageFormat { get; set; } = "❗⏰**I've been told to remind you to '%message%' now by %user%.**⏰❗";
-
-        public Dictionary<string, List<string>> CustomReactions { get; set; } = new Dictionary<string, List<string>>()
+        public static readonly Dictionary<string, List<string>> DefaultCustomReactions = new Dictionary<string, List<string>>
         {
             {@"\o\", new List<string>()
             { "/o/" } },
@@ -88,8 +81,44 @@ namespace NadekoBot.Classes.JSONModels
                 "https://cdn.discordapp.com/attachments/140007341880901632/156721724430352385/okawari_01_haruka_weird_mask.jpg",
                 "https://cdn.discordapp.com/attachments/140007341880901632/156721728763068417/mustache-best-girl.png"
 
+            } },
+            {"%mention% inv", new List<string>() {
+                "To invite your bot, click on this link -> <https://discordapp.com/oauth2/authorize?client_id=%target%&scope=bot&permissions=66186303>"
+            } },
+            { "%mention% threaten", new List<string>() {
+                "You wanna die, %target%?"
+            } },
+            { "%mention% archer", new List<string>() {
+                "http://i.imgur.com/Bha9NhL.jpg"
             } }
         };
+
+        public bool DontJoinServers { get; set; } = false;
+        public bool ForwardMessages { get; set; } = true;
+        public bool ForwardToAllOwners { get; set; } = false;
+        public bool IsRotatingStatus { get; set; } = false;
+        public int BufferSize { get; set; } = 4.MiB();
+
+        public string[] RaceAnimals { get; internal set; } = {
+                "🐼",
+                "🐻",
+                "🐧",
+                "🐨",
+                "🐬",
+                "🐞",
+                "🦀",
+                "🦄" };
+
+        [JsonIgnore]
+        public List<Quote> Quotes { get; set; } = new List<Quote>();
+
+        [JsonIgnore]
+        public List<PokemonType> PokemonTypes { get; set; } = new List<PokemonType>();
+
+        public string RemindMessageFormat { get; set; } = "❗⏰**I've been told to remind you to '%message%' now by %user%.**⏰❗";
+
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
+        public Dictionary<string, List<string>> CustomReactions { get; set; }
 
         public List<string> RotatingStatuses { get; set; } = new List<string>();
         public CommandPrefixesModel CommandPrefixes { get; set; } = new CommandPrefixesModel();
@@ -102,6 +131,22 @@ namespace NadekoBot.Classes.JSONModels
             143515953525817344
         };
 
+        [OnDeserialized]
+        internal void OnDeserialized(StreamingContext context)
+        {
+            if (CustomReactions == null)
+            {
+                CustomReactions = DefaultCustomReactions;
+            }
+        }
+        [OnSerializing]
+        internal void OnSerializing(StreamingContext context)
+        {
+            if (CustomReactions == null)
+            {
+                CustomReactions = DefaultCustomReactions;
+            }
+        }
 
         public string[] _8BallResponses { get; set; } =
             {
@@ -131,6 +176,17 @@ namespace NadekoBot.Classes.JSONModels
         public string CurrencySign { get; set; } = "🌸";
         public string CurrencyName { get; set; } = "NadekoFlower";
         public string DMHelpString { get; set; } = "Type `-h` for help.";
+        public string HelpString { get; set; } = @"You can use `{0}modules` command to see a list of all modules.
+You can use `{0}commands ModuleName`
+(for example `{0}commands Administration`) to see a list of all of the commands in that module.
+For a specific command help, use `{0}h ""Command name""` (for example `-h ""!m q""`)
+
+
+**LIST OF COMMANDS CAN BE FOUND ON THIS LINK**
+<https://github.com/Kwoth/NadekoBot/blob/master/commandlist.md>
+
+
+Nadeko Support Server: <https://discord.gg/0ehQwTK2RBjAxzEY>";
     }
 
     public class CommandPrefixesModel
@@ -141,23 +197,29 @@ namespace NadekoBot.Classes.JSONModels
         public string Conversations { get; set; } = "<@{0}>";
         public string ClashOfClans { get; set; } = ",";
         public string Help { get; set; } = "-";
-        public string Music { get; set; } = "!m";
-        public string Trello { get; set; } = "trello";
+        public string Music { get; set; } = "!!";
+        public string Trello { get; set; } = "trello ";
         public string Games { get; set; } = ">";
         public string Gambling { get; set; } = "$";
         public string Permissions { get; set; } = ";";
         public string Programming { get; set; } = "%";
         public string Pokemon { get; set; } = ">";
+        public string Utility { get; set; } = ".";
     }
 
     public static class ConfigHandler
     {
-        private static readonly object configLock = new object();
-        public static void SaveConfig()
+        private static readonly SemaphoreSlim configLock = new SemaphoreSlim(1, 1);
+        public static async Task SaveConfig()
         {
-            lock (configLock)
+            await configLock.WaitAsync();
+            try
             {
                 File.WriteAllText("data/config.json", JsonConvert.SerializeObject(NadekoBot.Config, Formatting.Indented));
+            }
+            finally
+            {
+                configLock.Release();
             }
         }
 

@@ -4,8 +4,10 @@ using NadekoBot.Extensions;
 using NadekoBot.Modules.Administration.Commands;
 using NadekoBot.Modules.Music;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Reflection;
@@ -41,7 +43,10 @@ namespace NadekoBot
             var commandService = NadekoBot.Client.GetService<CommandService>();
 
             statsStopwatch.Start();
+
             commandService.CommandExecuted += StatsCollector_RanCommand;
+            commandService.CommandFinished += CommandService_CommandFinished;
+            commandService.CommandErrored += CommandService_CommandFinished;
 
             Task.Run(StartCollecting);
 
@@ -97,7 +102,7 @@ namespace NadekoBot
                     if (e.Channel.IsPrivate)
                         return;
                     if (e.Channel.Type == ChannelType.Text)
-                        VoiceChannelsCount++;
+                        TextChannelsCount--;
                     else if (e.Channel.Type == ChannelType.Voice)
                         VoiceChannelsCount--;
                 }
@@ -106,6 +111,7 @@ namespace NadekoBot
             carbonStatusTimer.Elapsed += async (s, e) => await SendUpdateToCarbon().ConfigureAwait(false);
             carbonStatusTimer.Start();
         }
+
         HttpClient carbonClient = new HttpClient();
         private async Task SendUpdateToCarbon()
         {
@@ -176,9 +182,11 @@ namespace NadekoBot
 
         private async Task StartCollecting()
         {
+            var statsSw = new Stopwatch();
             while (true)
             {
                 await Task.Delay(new TimeSpan(0, 30, 0)).ConfigureAwait(false);
+                statsSw.Start();
                 try
                 {
                     var onlineUsers = await Task.Run(() => NadekoBot.Client.Servers.Sum(x => x.Users.Count())).ConfigureAwait(false);
@@ -187,7 +195,7 @@ namespace NadekoBot
                                                                         .ConfigureAwait(false);
                     var connectedServers = NadekoBot.Client.Servers.Count();
 
-                    Classes.DbHandler.Instance.InsertData(new DataModels.Stats
+                    Classes.DbHandler.Instance.Connection.Insert(new DataModels.Stats
                     {
                         OnlineUsers = onlineUsers,
                         RealOnlineUsers = realOnlineUsers,
@@ -195,6 +203,13 @@ namespace NadekoBot
                         ConnectedServers = connectedServers,
                         DateAdded = DateTime.Now
                     });
+
+                    statsSw.Stop();
+                    var clr = Console.ForegroundColor;
+                    Console.ForegroundColor = ConsoleColor.Blue;
+                    Console.WriteLine($"--------------\nCollecting stats finished in {statsSw.Elapsed.TotalSeconds}s\n-------------");
+                    Console.ForegroundColor = clr;
+                    statsSw.Reset();
                 }
                 catch
                 {
@@ -204,15 +219,48 @@ namespace NadekoBot
             }
         }
 
+        private static ConcurrentDictionary<ulong, DateTime> commandTracker = new ConcurrentDictionary<ulong, DateTime>();
+
+        private void CommandService_CommandFinished(object sender, CommandEventArgs e)
+        {
+
+            DateTime dt;
+            if (!commandTracker.TryGetValue(e.Message.Id, out dt))
+                return;
+            try
+            {
+                if (e is CommandErrorEventArgs)
+                {
+                    var er = e as CommandErrorEventArgs;
+                    if (er.ErrorType == CommandErrorType.Exception)
+                    {
+                        File.AppendAllText("errors.txt", $@"Command: {er.Command}
+{er.Exception}
+-------------------------------------
+");
+                        Console.WriteLine($">>COMMAND ERRORED after *{(DateTime.UtcNow - dt).TotalSeconds}s*\nCmd: {e.Command.Text}\nMsg: {e.Message.Text}\nUsr: {e.User.Name} [{e.User.Id}]\nSrvr: {e.Server?.Name ?? "PRIVATE"} [{e.Server?.Id}]\n-----");
+                    }
+
+                }
+                else
+                {
+                    Console.WriteLine($">>COMMAND ENDED after *{(DateTime.UtcNow - dt).TotalSeconds}s*\nCmd: {e.Command.Text}\nMsg: {e.Message.Text}\nUsr: {e.User.Name} [{e.User.Id}]\nSrvr: {e.Server?.Name ?? "PRIVATE"} [{e.Server?.Id}]\n-----");
+                }
+            }
+            catch { }
+        }
+
         private async void StatsCollector_RanCommand(object sender, CommandEventArgs e)
         {
-            Console.WriteLine($">>Command {e.Command.Text}");
+            commandTracker.TryAdd(e.Message.Id, DateTime.UtcNow);
+            Console.WriteLine($">>COMMAND STARTED\nCmd: {e.Command.Text}\nMsg: {e.Message.Text}\nUsr: {e.User.Name} [{e.User.Id}]\nSrvr: {e.Server?.Name ?? "PRIVATE"} [{e.Server?.Id}]\n-----");
+#if !NADEKO_RELEASE
             await Task.Run(() =>
             {
                 try
                 {
                     commandsRan++;
-                    Classes.DbHandler.Instance.InsertData(new DataModels.Command
+                    Classes.DbHandler.Instance.Connection.Insert(new DataModels.Command
                     {
                         ServerId = (long)(e.Server?.Id ?? 0),
                         ServerName = e.Server?.Name ?? "--Direct Message--",
@@ -230,6 +278,7 @@ namespace NadekoBot
                     Console.WriteLine(ex);
                 }
             }).ConfigureAwait(false);
+#endif
         }
     }
 }

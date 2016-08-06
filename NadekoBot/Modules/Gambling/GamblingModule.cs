@@ -4,6 +4,7 @@ using Discord.Modules;
 using NadekoBot.Classes;
 using NadekoBot.DataModels;
 using NadekoBot.Extensions;
+using NadekoBot.Modules.Gambling.Commands;
 using NadekoBot.Modules.Permissions.Classes;
 using System;
 using System.Linq;
@@ -13,12 +14,12 @@ namespace NadekoBot.Modules.Gambling
 {
     internal class GamblingModule : DiscordModule
     {
-
         public GamblingModule()
         {
             commands.Add(new DrawCommand(this));
             commands.Add(new FlipCoinCommand(this));
             commands.Add(new DiceRollCommand(this));
+            commands.Add(new AnimalRacing(this));
         }
 
         public override string Prefix { get; } = NadekoBot.Config.CommandPrefixes.Gambling;
@@ -32,7 +33,7 @@ namespace NadekoBot.Modules.Gambling
                 commands.ForEach(com => com.Init(cgb));
 
                 cgb.CreateCommand(Prefix + "raffle")
-                    .Description("Prints a name and ID of a random user from the online list from the (optional) role.")
+                    .Description($"Prints a name and ID of a random user from the online list from the (optional) role. | `{Prefix}raffle` or `{Prefix}raffle RoleName`")
                     .Parameter("role", ParameterType.Optional)
                     .Do(async e =>
                     {
@@ -50,7 +51,7 @@ namespace NadekoBot.Modules.Gambling
                     });
 
                 cgb.CreateCommand(Prefix + "$$")
-                    .Description(string.Format("Check how much {0}s a person has. (Defaults to yourself)\n**Usage**:`{1}$$` or `{1}$$ @Someone`",
+                    .Description(string.Format("Check how much {0}s a person has. (Defaults to yourself) |`{1}$$` or `{1}$$ @Someone`",
                         NadekoBot.Config.CurrencyName, Prefix))
                     .Parameter("all", ParameterType.Unparsed)
                     .Do(async e =>
@@ -62,14 +63,14 @@ namespace NadekoBot.Modules.Gambling
                     });
 
                 cgb.CreateCommand(Prefix + "give")
-                    .Description(string.Format("Give someone a certain amount of {0}s", NadekoBot.Config.CurrencyName))
+                    .Description(string.Format("Give someone a certain amount of {0}s", NadekoBot.Config.CurrencyName)+ $"|`{Prefix}give 1 \"@SomeGuy\"`")
                     .Parameter("amount", ParameterType.Required)
                     .Parameter("receiver", ParameterType.Unparsed)
                     .Do(async e =>
                     {
                         var amountStr = e.GetArg("amount")?.Trim();
                         long amount;
-                        if (!long.TryParse(amountStr, out amount) || amount < 0)
+                        if (!long.TryParse(amountStr, out amount) || amount <= 0)
                             return;
 
                         var mentionedUser = e.Message.MentionedUsers.FirstOrDefault(u =>
@@ -82,11 +83,11 @@ namespace NadekoBot.Modules.Gambling
 
                         if (userFlowers < amount)
                         {
-                            await e.Channel.SendMessage($"{e.User.Mention} You don't have enough {NadekoBot.Config.CurrencyName}s. You have only {userFlowers}{NadekoBot.Config.CurrencySign}.").ConfigureAwait(false);
+                            await e.Channel.SendMessage($"{e.User.Mention} You don't have enough {NadekoBot.Config.CurrencyName}s. You only have {userFlowers}{NadekoBot.Config.CurrencySign}.").ConfigureAwait(false);
                             return;
                         }
 
-                        FlowersHandler.RemoveFlowers(e.User, "Gift", (int)amount);
+                        await FlowersHandler.RemoveFlowers(e.User, "Gift", (int)amount, true).ConfigureAwait(false);
                         await FlowersHandler.AddFlowersAsync(mentionedUser, "Gift", (int)amount).ConfigureAwait(false);
 
                         await e.Channel.SendMessage($"{e.User.Mention} successfully sent {amount} {NadekoBot.Config.CurrencyName}s to {mentionedUser.Mention}!").ConfigureAwait(false);
@@ -94,7 +95,7 @@ namespace NadekoBot.Modules.Gambling
                     });
 
                 cgb.CreateCommand(Prefix + "award")
-                    .Description("Gives someone a certain amount of flowers. **Owner only!**")
+                    .Description($"Gives someone a certain amount of flowers. **Bot Owner Only!** | `{Prefix}award 100 @person`")
                     .AddCheck(SimpleCheckers.OwnerOnly())
                     .Parameter("amount", ParameterType.Required)
                     .Parameter("receiver", ParameterType.Unparsed)
@@ -116,7 +117,7 @@ namespace NadekoBot.Modules.Gambling
                     });
 
                 cgb.CreateCommand(Prefix + "take")
-                    .Description("Takes a certain amount of flowers from someone. **Owner only!**")
+                    .Description($"Takes a certain amount of flowers from someone. **Bot Owner Only!** | `{Prefix}take 1 \"@someguy\"`")
                     .AddCheck(SimpleCheckers.OwnerOnly())
                     .Parameter("amount", ParameterType.Required)
                     .Parameter("rektperson", ParameterType.Unparsed)
@@ -132,13 +133,61 @@ namespace NadekoBot.Modules.Gambling
                         if (mentionedUser == null)
                             return;
 
-                        FlowersHandler.RemoveFlowers(mentionedUser, $"Taken by bot owner.({e.User.Name}/{e.User.Id})", (int)amount);
+                        await FlowersHandler.RemoveFlowers(mentionedUser, $"Taken by bot owner.({e.User.Name}/{e.User.Id})", (int)amount).ConfigureAwait(false);
 
                         await e.Channel.SendMessage($"{e.User.Mention} successfully took {amount} {NadekoBot.Config.CurrencyName}s from {mentionedUser.Mention}!").ConfigureAwait(false);
                     });
 
+                cgb.CreateCommand(Prefix + "betroll")
+                    .Alias(Prefix + "br")
+                    .Description($"Bets a certain amount of {NadekoBot.Config.CurrencyName}s and rolls a dice. Rolling over 66 yields x2 flowers, over 90 - x3 and 100 x10. | `{Prefix}br 5`")
+                    .Parameter("amount",ParameterType.Required)
+                    .Do(async e =>
+                    {
+                        var amountstr = e.GetArg("amount").Trim();
+                        int amount;
+
+                        if (!int.TryParse(amountstr, out amount) || amount < 1)
+                            return;
+
+                        var userFlowers = GetUserFlowers(e.User.Id);
+
+                        if (userFlowers < amount)
+                        {
+                            await e.Channel.SendMessage($"{e.User.Mention} You don't have enough {NadekoBot.Config.CurrencyName}s. You only have {userFlowers}{NadekoBot.Config.CurrencySign}.").ConfigureAwait(false);
+                            return;
+                        }
+
+                        await FlowersHandler.RemoveFlowers(e.User, "Betroll Gamble", (int)amount, true).ConfigureAwait(false);
+
+                        var rng = new Random().Next(0, 101);
+                        var str = $"{e.User.Mention} `You rolled {rng}.` ";
+                        if (rng < 67)
+                        {
+                            str += "Better luck next time.";
+                        }
+                        else if (rng < 90)
+                        {
+                            str += $"Congratulations! You won {amount * 2}{NadekoBot.Config.CurrencySign} for rolling above 66";
+                            await FlowersHandler.AddFlowersAsync(e.User, "Betroll Gamble", amount * 2, true).ConfigureAwait(false);
+                        }
+                        else if (rng < 100)
+                        {
+                            str += $"Congratulations! You won {amount * 3}{NadekoBot.Config.CurrencySign} for rolling above 90.";
+                            await FlowersHandler.AddFlowersAsync(e.User, "Betroll Gamble", amount * 3, true).ConfigureAwait(false);
+                        }
+                        else {
+                            str += $"👑 Congratulations! You won {amount * 10}{NadekoBot.Config.CurrencySign} for rolling **100**. 👑";
+                            await FlowersHandler.AddFlowersAsync(e.User, "Betroll Gamble", amount * 10, true).ConfigureAwait(false);
+                        }
+
+                        await e.Channel.SendMessage(str).ConfigureAwait(false);
+                        
+                    });
+
                 cgb.CreateCommand(Prefix + "leaderboard")
                     .Alias(Prefix + "lb")
+                    .Description($"Displays bot currency leaderboard | `{Prefix}lb`")
                     .Do(async e =>
                     {
                         var richestTemp = DbHandler.Instance.GetTopRichest();
@@ -147,19 +196,19 @@ namespace NadekoBot.Modules.Gambling
                             return;
                         await e.Channel.SendMessage(
                             richest.Aggregate(new StringBuilder(
-$@"```xl
-┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━┓
-┃        Id         ┃  $$$  ┃
+    $@"```xl
+┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━┓
+┃        Id           ┃  $$$  ┃
 "),
                             (cur, cs) => cur.AppendLine(
-$@"┣━━━━━━━━━━━━━━━━━━━╋━━━━━━━┫
-┃{cs.UserId,-18} ┃ {cs.Value,5} ┃")
-                                ).ToString() + "┗━━━━━━━━━━━━━━━━━━━┻━━━━━━━┛```");
+    $@"┣━━━━━━━━━━━━━━━━━━━━━╋━━━━━━━┫
+┃{(e.Server.Users.Where(u => u.Id == (ulong)cs.UserId).FirstOrDefault()?.Name.TrimTo(18, true) ?? cs.UserId.ToString()),-20} ┃ {cs.Value,5} ┃")
+                                    ).ToString() + "┗━━━━━━━━━━━━━━━━━━━━━┻━━━━━━━┛```").ConfigureAwait(false);
                     });
             });
         }
 
-        private static long GetUserFlowers(ulong userId) =>
+        public static long GetUserFlowers(ulong userId) =>
             Classes.DbHandler.Instance.GetStateByUserId((long)userId)?.Value ?? 0;
     }
 }

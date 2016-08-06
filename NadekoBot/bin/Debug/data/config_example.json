@@ -1,7 +1,19 @@
 {
   "DontJoinServers": false,
   "ForwardMessages": true,
+  "ForwardToAllOwners": false,
   "IsRotatingStatus": false,
+  "BufferSize": 4194304,
+  "RaceAnimals": [
+    "🐼",
+    "🐻",
+    "🐧",
+    "🐨",
+    "🐬",
+    "🐞",
+    "🦀",
+    "🦄"
+  ],
   "RemindMessageFormat": "❗⏰**I've been told to remind you to '%message%' now by %user%.**⏰❗",
   "CustomReactions": {
     "\\o\\": [
@@ -70,6 +82,15 @@
       "https://cdn.discordapp.com/attachments/140007341880901632/156721715831898113/hqdefault.jpg",
       "https://cdn.discordapp.com/attachments/140007341880901632/156721724430352385/okawari_01_haruka_weird_mask.jpg",
       "https://cdn.discordapp.com/attachments/140007341880901632/156721728763068417/mustache-best-girl.png"
+    ],
+    "%mention% inv": [
+      "To invite your bot, click on this link -> <https://discordapp.com/oauth2/authorize?client_id=%target%&scope=bot&permissions=66186303>"
+    ],
+    "%mention% threaten": [
+      "You wanna die, %target%?"
+    ],
+    "%mention% archer": [
+      "http://i.imgur.com/Bha9NhL.jpg"
     ]
   },
   "RotatingStatuses": [],
@@ -80,13 +101,14 @@
     "Conversations": "<@{0}>",
     "ClashOfClans": ",",
     "Help": "-",
-    "Music": "!m",
-    "Trello": "trello",
+    "Music": "!!",
+    "Trello": "trello ",
     "Games": ">",
     "Gambling": "$",
     "Permissions": ";",
     "Programming": "%",
-    "Pokemon": ">"
+    "Pokemon": ">",
+    "Utility": "."
   },
   "ServerBlacklist": [],
   "ChannelBlacklist": [],
@@ -120,5 +142,6 @@
   ],
   "CurrencySign": "🌸",
   "CurrencyName": "NadekoFlower",
-  "DMHelpString": "Type `-h` for help."
+  "DMHelpString": "Type `-h` for help.",
+  "HelpString": "You can use `{0}modules` command to see a list of all modules.\r\nYou can use `{0}commands ModuleName`\r\n(for example `{0}commands Administration`) to see a list of all of the commands in that module.\r\nFor a specific command help, use `{0}h \"Command name\"` (for example `-h \"!m q\"`)\r\n\r\n\r\n**LIST OF COMMANDS CAN BE FOUND ON THIS LINK**\r\n<https://github.com/Kwoth/NadekoBot/blob/master/commandlist.md>\r\n\r\n\r\nNadeko Support Server: <https://discord.gg/0ehQwTK2RBjAxzEY>"
 }

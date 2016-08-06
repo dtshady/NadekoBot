@@ -26,16 +26,13 @@ namespace NadekoBot.Classes
     {
         private static DateTime lastRefreshed = DateTime.MinValue;
         private static string token { get; set; } = "";
-        private static readonly HttpClient httpClient = new HttpClient();
 
         public static async Task<Stream> GetResponseStreamAsync(string url,
             IEnumerable<KeyValuePair<string, string>> headers = null, RequestHttpMethod method = RequestHttpMethod.Get)
         {
             if (string.IsNullOrWhiteSpace(url))
                 throw new ArgumentNullException(nameof(url));
-            //if its a post or there are no headers, use static httpclient
-            // if there are headers and it's get, it's not threadsafe
-            var cl = headers == null || method == RequestHttpMethod.Post ? httpClient : new HttpClient();
+            var cl = new HttpClient();
             cl.DefaultRequestHeaders.Clear();
             switch (method)
             {
@@ -146,8 +143,6 @@ namespace NadekoBot.Classes
 
         public static async Task<string> FindYoutubeUrlByKeywords(string keywords)
         {
-            if (string.IsNullOrWhiteSpace(NadekoBot.Creds.GoogleAPIKey))
-                throw new InvalidCredentialException("Google API Key is missing.");
             if (string.IsNullOrWhiteSpace(keywords))
                 throw new ArgumentNullException(nameof(keywords), "Query not specified.");
             if (keywords.Length > 150)
@@ -159,6 +154,10 @@ namespace NadekoBot.Classes
             {
                 return $"https://www.youtube.com/watch?v={match.Groups["id"].Value}";
             }
+
+            if (string.IsNullOrWhiteSpace(NadekoBot.Creds.GoogleAPIKey))
+                throw new InvalidCredentialException("Google API Key is missing.");
+
             var response = await GetResponseStringAsync(
                                     $"https://www.googleapis.com/youtube/v3/search?" +
                                     $"part=snippet&maxResults=1" +
@@ -175,6 +174,27 @@ namespace NadekoBot.Classes
             }
             else
                 return null;
+        }
+
+        public static async Task<IEnumerable<string>> GetRelatedVideoIds(string id, int count = 1)
+        {
+            if (string.IsNullOrWhiteSpace(id))
+                throw new ArgumentNullException(nameof(id));
+            var match = new Regex("(?:youtu\\.be\\/|v=)(?<id>[\\da-zA-Z\\-_]*)").Match(id);
+            if (match.Length > 1)
+            {
+                id = match.Groups["id"].Value;
+            }
+            var response = await GetResponseStringAsync(
+                                    $"https://www.googleapis.com/youtube/v3/search?" +
+                                    $"part=snippet&maxResults={count}&type=video" +
+                                    $"&relatedToVideoId={id}" +
+                                    $"&key={NadekoBot.Creds.GoogleAPIKey}").ConfigureAwait(false);
+            JObject obj = JObject.Parse(response);
+
+            var data = JsonConvert.DeserializeObject<YoutubeVideoSearch>(response);
+
+            return data.items.Select(v => "http://www.youtube.com/watch?v=" + v.id.videoId);
         }
 
         public static async Task<string> GetPlaylistIdByKeyword(string query)
@@ -358,14 +378,12 @@ namespace NadekoBot.Classes
 
                 using (var streamWriter = new StreamWriter(await httpWebRequest.GetRequestStreamAsync().ConfigureAwait(false)))
                 {
-                    var json = "{\"longUrl\":\"" + url + "\"}";
+                    var json = "{\"longUrl\":\"" + Uri.EscapeDataString(url) + "\"}";
                     streamWriter.Write(json);
                 }
 
                 var httpResponse = (await httpWebRequest.GetResponseAsync().ConfigureAwait(false)) as HttpWebResponse;
-                if (httpResponse == null) return "HTTP_RESPONSE_ERROR";
                 var responseStream = httpResponse.GetResponseStream();
-                if (responseStream == null) return "RESPONSE_STREAM ERROR";
                 using (var streamReader = new StreamReader(responseStream))
                 {
                     var responseText = await streamReader.ReadToEndAsync().ConfigureAwait(false);
@@ -374,9 +392,18 @@ namespace NadekoBot.Classes
             }
             catch (Exception ex)
             {
+                Console.WriteLine("Shortening of this url failed: " + url);
                 Console.WriteLine(ex.ToString());
                 return url;
             }
+        }
+
+        public static string ShowInPrettyCode<T>(IEnumerable<T> items, Func<T, string> howToPrint, int cols = 3)
+        {
+            var i = 0;
+            return "```xl\n" + string.Join("\n", items.GroupBy(item => (i++) / cols)
+                                      .Select(ig => string.Concat(ig.Select(el => howToPrint(el)))))
+                                      + $"\n```";
         }
     }
 }

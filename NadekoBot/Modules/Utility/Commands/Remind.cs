@@ -9,7 +9,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Timers;
 
-namespace NadekoBot.Modules.Administration.Commands
+namespace NadekoBot.Modules.Utility.Commands
 {
     class Remind : DiscordCommand
     {
@@ -88,7 +88,7 @@ namespace NadekoBot.Modules.Administration.Commands
                 .Description("Sends a message to you or a channel after certain amount of time. " +
                              "First argument is me/here/'channelname'. Second argument is time in a descending order (mo>w>d>h>m) example: 1w5d3h10m. " +
                              "Third argument is a (multiword)message. " +
-                             "\n**Usage**: `.remind me 1d5h Do something` or `.remind #general Start now!`")
+                             $" | `{Prefix}remind me 1d5h Do something` or `{Prefix}remind #general Start now!`")
                 .Parameter("meorchannel", ParameterType.Required)
                 .Parameter("time", ParameterType.Required)
                 .Parameter("message", ParameterType.Unparsed)
@@ -171,7 +171,7 @@ namespace NadekoBot.Modules.Administration.Commands
                         UserId = (long)e.User.Id,
                         ServerId = (long)e.Server.Id
                     };
-                    DbHandler.Instance.InsertData(rem);
+                    DbHandler.Instance.Connection.Insert(rem);
 
                     reminders.Add(StartNewReminder(rem));
 
@@ -180,7 +180,7 @@ namespace NadekoBot.Modules.Administration.Commands
             cgb.CreateCommand(Module.Prefix + "remindmsg")
                 .Description("Sets message for when the remind is triggered. " +
                     " Available placeholders are %user% - user who ran the command, %message% -" +
-                    " Message specified in the remind, %target% - target channel of the remind. **Owner only!**")
+                    $" Message specified in the remind, %target% - target channel of the remind. **Bot Owner Only!** | `{Prefix}remindmsg do something else`")
                 .Parameter("msg", ParameterType.Unparsed)
                 .AddCheck(SimpleCheckers.OwnerOnly())
                 .Do(async e =>
